@@ -1,4 +1,4 @@
-﻿<#
+﻿<#PSScriptInfo
 .VERSION 1.0.0
 .GUID 9e2821f7-8662-4d03-b83b-d41fe1d12819
 .AUTHOR Cory Calahan
@@ -23,7 +23,7 @@
 function New-CmdletSnippet
 {
 #Requires -Version 5
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess=$true)]
     [Alias()]
     [OutputType([String])]
     Param
@@ -56,32 +56,35 @@ function New-CmdletSnippet
     }
     Process
     {
-        foreach ($cmdlet in $FromCmdlet)
+        if ($pscmdlet.ShouldProcess("Target", "Operation"))
         {
-            $MetaData = New-Object -TypeName 'System.Management.Automation.CommandMetaData' -ArgumentList (Get-Command -Name $cmdlet)
-            $ProxyCommand = [System.Management.Automation.ProxyCommand]::Create($MetaData)
-            $OutputString = New-Object -TypeName 'System.Text.StringBuilder'
-            $header = "function $($cmdlet)Custom`r`n{`r`n<# Generated on $(Get-Date) from '$cmdlet'. #>`r`n"
-            $footer = "`n}"
-            $OutputString.Append($header).Append($ProxyCommand.ToString()).Append($footer) | Out-Null
-            if ($PSBoundParameters['CopyToClipBoard'])
+            foreach ($cmdlet in $FromCmdlet)
             {
-                $($OutputString.ToString()) | Set-Clipboard
-            }       
-            if ($PSBoundParameters['ToContainer'])
-            {
-                Write-Verbose -Message "Output to file: '$OutFile'."
-                try
+                $MetaData = New-Object -TypeName 'System.Management.Automation.CommandMetaData' -ArgumentList (Get-Command -Name $cmdlet)
+                $ProxyCommand = [System.Management.Automation.ProxyCommand]::Create($MetaData)
+                $OutputString = New-Object -TypeName 'System.Text.StringBuilder'
+                $header = "function $($cmdlet)Custom`r`n{`r`n<# Generated on $(Get-Date) from '$cmdlet'. #>`r`n"
+                $footer = "`n}"
+                $OutputString.Append($header).Append($ProxyCommand.ToString()).Append($footer) | Out-Null
+                if ($PSBoundParameters['CopyToClipBoard'])
                 {
-                    New-Item -Path $ToContainer -Name "$($cmdlet)Custom.ps1" -Value "$($OutputString.ToString())" -ErrorAction 'Stop' | Out-Null
-                }
-                catch
+                    $($OutputString.ToString()) | Set-Clipboard
+                }       
+                if ($PSBoundParameters['ToContainer'])
                 {
-                    Write-Error -Message $PSItem
-                    break
+                    Write-Verbose -Message "Output to file: '$OutFile'."
+                    try
+                    {
+                        New-Item -Path $ToContainer -Name "$($cmdlet)Custom.ps1" -Value "$($OutputString.ToString())" -ErrorAction 'Stop' | Out-Null
+                    }
+                    catch
+                    {
+                        Write-Error -Message $PSItem
+                        break
+                    }
                 }
+                Write-Output -InputObject $($OutputString.ToString())
             }
-            Write-Output -InputObject $($OutputString.ToString())
         }
     }
     End
